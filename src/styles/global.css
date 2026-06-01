@@ -1,0 +1,13 @@
+:root {
+  --bg: #0A0E17; --surface: #111827; --border: #1E2A42;
+  --blue: #1A6BF5; --blue-dark: #0D4CD4;
+  --green: #10B981; --yellow: #E8A817; --red: #DC3545;
+  --text-primary: #E8ECF4; --text-secondary: #8B9BC0; --text-muted: #4D5E80; --text-dim: #3D4B66;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--text-primary); -webkit-font-smoothing: antialiased; overscroll-behavior: none; }
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-thumb { background: #2A3348; border-radius: 2px; }
+input:focus, textarea:focus { outline: none; }
+button { cursor: pointer; }
+button:active { transform: scale(0.97); }
