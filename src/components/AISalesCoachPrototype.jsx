@@ -136,6 +136,63 @@ YOUR PERSONALITY:
 const DIFF_COLORS = { Intermediate: "#E8A817", Advanced: "#DC3545" };
 
 // ============================================================
+// PULL TO REFRESH
+// ============================================================
+
+function usePullToRefresh(onRefresh) {
+  const [pullDistance, setPullDistance] = useState(0);
+  const [refreshing, setRefreshing] = useState(false);
+  const startYRef = useRef(null);
+  const THRESHOLD = 72;
+
+  useEffect(() => {
+    const onTouchStart = (e) => {
+      if (window.scrollY === 0) startYRef.current = e.touches[0].clientY;
+    };
+    const onTouchMove = (e) => {
+      if (startYRef.current === null) return;
+      const dist = e.touches[0].clientY - startYRef.current;
+      if (dist > 0 && window.scrollY === 0) {
+        e.preventDefault();
+        setPullDistance(Math.min(dist * 0.4, THRESHOLD + 20));
+      }
+    };
+    const onTouchEnd = async () => {
+      if (pullDistance >= THRESHOLD) {
+        setRefreshing(true);
+        setPullDistance(0);
+        // Check for waiting service worker update
+        if ("serviceWorker" in navigator) {
+          const reg = await navigator.serviceWorker.getRegistration();
+          if (reg) await reg.update();
+          if (reg?.waiting) {
+            reg.waiting.postMessage({ type: "SKIP_WAITING" });
+            window.location.reload();
+            return;
+          }
+        }
+        await onRefresh();
+        setRefreshing(false);
+      } else {
+        setPullDistance(0);
+      }
+      startYRef.current = null;
+    };
+
+    document.addEventListener("touchstart", onTouchStart, { passive: true });
+    document.addEventListener("touchmove", onTouchMove, { passive: false });
+    document.addEventListener("touchend", onTouchEnd);
+    return () => {
+      document.removeEventListener("touchstart", onTouchStart);
+      document.removeEventListener("touchmove", onTouchMove);
+      document.removeEventListener("touchend", onTouchEnd);
+    };
+  }, [pullDistance, onRefresh]);
+
+  return { pullDistance, refreshing };
+}
+
+// ============================================================
 // VOICE HOOKS
 // ============================================================
 
@@ -374,6 +431,7 @@ export default function AISalesCoach({ session }) {
         @keyframes speakPulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(26,107,245,0.3); } 50% { box-shadow: 0 0 0 12px rgba(26,107,245,0); } }
         @keyframes typing { 0%, 60%, 100% { opacity: 0.3; } 30% { opacity: 1; } }
         @keyframes waveform { 0%, 100% { height: 8px; } 50% { height: 24px; } }
+        @keyframes pullSpin { to { transform: rotate(360deg); } }
         * { box-sizing: border-box; margin: 0; padding: 0; }
         ::-webkit-scrollbar { width: 4px; }
         ::-webkit-scrollbar-thumb { background: #2A3348; border-radius: 2px; }
@@ -390,6 +448,7 @@ export default function AISalesCoach({ session }) {
           onNew={() => { setEditScenario(null); setScreen("builder"); }}
           onEdit={(s) => { setEditScenario(s); setScreen("builder"); }}
           onSignOut={handleSignOut}
+          onRefresh={loadScenarios}
           session={session}
         />
       )}
@@ -412,9 +471,29 @@ export default function AISalesCoach({ session }) {
 // HOME SCREEN
 // ============================================================
 
-function HomeScreen({ scenarios, loading, onSelect, onNew, onEdit, onSignOut, session }) {
+function HomeScreen({ scenarios, loading, onSelect, onNew, onEdit, onSignOut, session, onRefresh }) {
+  const { pullDistance, refreshing } = usePullToRefresh(onRefresh);
+  const THRESHOLD = 72;
+  const pulled = pullDistance > 0 || refreshing;
+
   return (
     <div style={{ padding: "0 20px 40px", animation: "fadeIn 0.5s ease" }}>
+      {/* Pull to refresh indicator */}
+      <div style={{
+        position: "fixed", top: 0, left: "50%", transform: `translateX(-50%) translateY(${pulled ? Math.min(pullDistance, THRESHOLD) - 44 : -44}px)`,
+        transition: pullDistance === 0 ? "transform 0.3s ease" : "none",
+        zIndex: 100, display: "flex", alignItems: "center", justifyContent: "center",
+        width: 36, height: 36, borderRadius: "50%",
+        background: pullDistance >= THRESHOLD || refreshing ? "#1A6BF5" : "#1E2A42",
+        boxShadow: "0 2px 12px rgba(0,0,0,0.4)",
+      }}>
+        <span style={{
+          fontSize: 16,
+          display: "inline-block",
+          animation: refreshing ? "pullSpin 0.8s linear infinite" : "none",
+          transform: !refreshing ? `rotate(${Math.min(pullDistance / THRESHOLD, 1) * 180}deg)` : undefined,
+        }}>↻</span>
+      </div>
       {/* Header */}
       <div style={{ padding: "32px 0 24px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
