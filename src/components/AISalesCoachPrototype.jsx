@@ -690,7 +690,7 @@ RULES:
     );
     setMessages([{ role: "customer", text }]);
     setLoading(false); setMode("speaking");
-    voice.speak(text, scenario.voiceId, () => setMode("idle"));
+    voice.speak(text, scenario.voice_id || scenario.voiceId, () => setMode("idle"));
   };
 
   const sendMessage = async (overrideText) => {
@@ -712,7 +712,7 @@ RULES:
     const text = await callClaude(apiMsgs, sysPrompt(turnCount + 1));
     setMessages(prev => [...prev, { role: "customer", text }]);
     setLoading(false); setMode("speaking");
-    voice.speak(text, scenario.voiceId, () => setMode("idle"));
+    voice.speak(text, scenario.voice_id || scenario.voiceId, () => setMode("idle"));
   };
 
   const toggleMic = () => {
