@@ -651,6 +651,32 @@ function RoleplayScreen({ scenario, messages, setMessages, turnCount, setTurnCou
   const [started, setStarted] = useState(false);
   const [mode, setMode] = useState("idle"); // idle, listening, thinking, speaking
   const scrollRef = useRef(null);
+  const wakeLockRef = useRef(null);
+
+  // Keep screen awake during roleplay
+  useEffect(() => {
+    const acquireWakeLock = async () => {
+      if ("wakeLock" in navigator) {
+        try {
+          wakeLockRef.current = await navigator.wakeLock.request("screen");
+        } catch (e) {
+          console.log("Wake lock unavailable:", e.message);
+        }
+      }
+    };
+    acquireWakeLock();
+
+    // Re-acquire if tab becomes visible again (iOS releases lock on background)
+    const onVisibilityChange = () => {
+      if (document.visibilityState === "visible") acquireWakeLock();
+    };
+    document.addEventListener("visibilitychange", onVisibilityChange);
+
+    return () => {
+      wakeLockRef.current?.release();
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+    };
+  }, []);
 
   useEffect(() => {
     if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
