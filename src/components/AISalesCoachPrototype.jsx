@@ -139,56 +139,91 @@ const DIFF_COLORS = { Intermediate: "#E8A817", Advanced: "#DC3545" };
 // VOICE HOOKS
 // ============================================================
 
+const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+
 function useVoice() {
   const [isListening, setIsListening] = useState(false);
   const [transcript, setTranscript] = useState("");
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [voiceEnabled, setVoiceEnabled] = useState(true);
   const recognitionRef = useRef(null);
-  const audioRef = useRef(null);
+  const audioCtxRef = useRef(null);
+  const audioSourceRef = useRef(null);
+  const interimRef = useRef("");
+
+  // Unlock AudioContext on first user gesture (required by iOS)
+  const unlockAudio = useCallback(() => {
+    if (!audioCtxRef.current) {
+      audioCtxRef.current = new (window.AudioContext || window.webkitAudioContext)();
+    }
+    if (audioCtxRef.current.state === "suspended") {
+      audioCtxRef.current.resume();
+    }
+  }, []);
 
   useEffect(() => {
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (SpeechRecognition) {
-      const recognition = new SpeechRecognition();
-      recognition.continuous = true;
-      recognition.interimResults = true;
-      recognition.lang = "en-US";
+      const createRecognition = () => {
+        const recognition = new SpeechRecognition();
+        // iOS Safari does not support continuous mode — use single-shot
+        recognition.continuous = !isIOS;
+        recognition.interimResults = true;
+        recognition.lang = "en-US";
 
-      recognition.onresult = (event) => {
-        let final = "";
-        let interim = "";
-        for (let i = 0; i < event.results.length; i++) {
-          if (event.results[i].isFinal) {
-            final += event.results[i][0].transcript + " ";
-          } else {
-            interim += event.results[i][0].transcript;
+        recognition.onresult = (event) => {
+          let final = "";
+          let interim = "";
+          for (let i = 0; i < event.results.length; i++) {
+            if (event.results[i].isFinal) {
+              final += event.results[i][0].transcript + " ";
+            } else {
+              interim += event.results[i][0].transcript;
+            }
           }
-        }
-        setTranscript((final + interim).trim());
+          const combined = (final + interim).trim();
+          interimRef.current = combined;
+          setTranscript(combined);
+        };
+
+        recognition.onerror = (e) => {
+          if (e.error !== "aborted" && e.error !== "no-speech") {
+            console.error("Speech error:", e.error);
+          }
+          setIsListening(false);
+        };
+
+        recognition.onend = () => {
+          setIsListening(false);
+        };
+
+        return recognition;
       };
 
-      recognition.onerror = (e) => {
-        if (e.error !== "aborted") console.error("Speech error:", e.error);
-        setIsListening(false);
-      };
-
-      recognition.onend = () => setIsListening(false);
-
-      recognitionRef.current = recognition;
+      recognitionRef.current = createRecognition();
+      // Store factory for iOS re-creation
+      recognitionRef.current._create = createRecognition;
     }
-    return () => { audioRef.current?.pause(); };
+    return () => {
+      audioCtxRef.current?.close();
+    };
   }, []);
 
   const startListening = useCallback(() => {
-    if (recognitionRef.current && !isListening) {
-      setTranscript("");
-      try {
-        recognitionRef.current.start();
-        setIsListening(true);
-      } catch (e) { console.error("Start error:", e); }
+    if (!recognitionRef.current) return;
+    // iOS: recreate recognition instance each time (Safari requires fresh instance)
+    if (isIOS && recognitionRef.current._create) {
+      const fresh = recognitionRef.current._create();
+      fresh._create = recognitionRef.current._create;
+      recognitionRef.current = fresh;
     }
-  }, [isListening]);
+    interimRef.current = "";
+    setTranscript("");
+    try {
+      recognitionRef.current.start();
+      setIsListening(true);
+    } catch (e) { console.error("Start error:", e); }
+  }, []);
 
   const stopListening = useCallback(() => {
     if (recognitionRef.current && isListening) {
@@ -201,9 +236,9 @@ function useVoice() {
     if (!voiceEnabled) { onDone?.(); return; }
 
     // Stop any current playback
-    if (audioRef.current) {
-      audioRef.current.pause();
-      audioRef.current = null;
+    if (audioSourceRef.current) {
+      try { audioSourceRef.current.stop(); } catch (_) {}
+      audioSourceRef.current = null;
     }
 
     try {
@@ -216,25 +251,28 @@ function useVoice() {
 
       if (!response.ok) throw new Error("TTS request failed");
 
-      const blob = await response.blob();
-      const url = URL.createObjectURL(blob);
-      const audio = new Audio(url);
-      audioRef.current = audio;
+      const arrayBuffer = await response.arrayBuffer();
 
-      audio.onended = () => {
-        URL.revokeObjectURL(url);
-        audioRef.current = null;
+      // Use AudioContext for iOS compatibility — new Audio() is blocked after async on iOS
+      if (!audioCtxRef.current) {
+        audioCtxRef.current = new (window.AudioContext || window.webkitAudioContext)();
+      }
+      const ctx = audioCtxRef.current;
+      if (ctx.state === "suspended") await ctx.resume();
+
+      const decoded = await ctx.decodeAudioData(arrayBuffer);
+      const source = ctx.createBufferSource();
+      source.buffer = decoded;
+      source.connect(ctx.destination);
+      audioSourceRef.current = source;
+
+      source.onended = () => {
+        audioSourceRef.current = null;
         setIsSpeaking(false);
         onDone?.();
       };
-      audio.onerror = () => {
-        URL.revokeObjectURL(url);
-        audioRef.current = null;
-        setIsSpeaking(false);
-        onDone?.();
-      };
 
-      await audio.play();
+      source.start(0);
     } catch (e) {
       console.error("ElevenLabs TTS error:", e);
       setIsSpeaking(false);
@@ -243,16 +281,16 @@ function useVoice() {
   }, [voiceEnabled]);
 
   const stopSpeaking = useCallback(() => {
-    if (audioRef.current) {
-      audioRef.current.pause();
-      audioRef.current = null;
+    if (audioSourceRef.current) {
+      try { audioSourceRef.current.stop(); } catch (_) {}
+      audioSourceRef.current = null;
     }
     setIsSpeaking(false);
   }, []);
 
   const hasRecognition = !!recognitionRef.current;
 
-  return { isListening, transcript, setTranscript, isSpeaking, voiceEnabled, setVoiceEnabled, startListening, stopListening, speak, stopSpeaking, hasRecognition };
+  return { isListening, transcript, setTranscript, isSpeaking, voiceEnabled, setVoiceEnabled, startListening, stopListening, speak, stopSpeaking, hasRecognition, unlockAudio };
 }
 
 // ============================================================
@@ -523,6 +561,7 @@ RULES:
 - Turn ${turn} of the conversation.`;
 
   const startConversation = async () => {
+    voice.unlockAudio(); // Must be called synchronously within user gesture to unlock iOS audio
     setStarted(true); setLoading(true); setMode("thinking");
     const text = await callClaude(
       [{ role: "user", content: "The SA just joined the call and introduced themselves. Open the conversation in character. Keep it to 2-3 sentences." }],
@@ -556,6 +595,7 @@ RULES:
   };
 
   const toggleMic = () => {
+    voice.unlockAudio(); // Ensure AudioContext is unlocked on every tap (iOS)
     if (voice.isListening) {
       voice.stopListening();
       // Auto-send after stopping if there's content
