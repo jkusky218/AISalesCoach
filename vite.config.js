@@ -9,8 +9,8 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.svg'],
       manifest: {
-        name: 'AI Sales Coach',
-        short_name: 'AI Sales Coach',
+        name: 'Sales Craft',
+        short_name: 'Sales Craft',
         description: 'AI-powered pre-sales training with voice role-play',
         theme_color: '#0A0E17',
         background_color: '#0A0E17',

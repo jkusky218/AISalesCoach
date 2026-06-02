@@ -313,8 +313,8 @@ function HomeScreen({ scenarios, onSelect }) {
         }}>
           <span style={{ fontSize: 28 }}>🎯</span>
         </div>
-        <h1 style={{ fontSize: 26, fontWeight: 700, letterSpacing: -0.5, margin: "0 0 6px", color: "#fff" }}>AI Sales Coach</h1>
-        <p style={{ fontSize: 13, color: "#6B7A99", fontWeight: 500 }}>Pre-Sales Training Simulator</p>
+        <h1 style={{ fontSize: 26, fontWeight: 700, letterSpacing: -0.5, margin: "0 0 6px", color: "#fff" }}>Sales Craft</h1>
+        <p style={{ fontSize: 13, color: "#6B7A99", fontWeight: 500 }}>Master the craft of technical selling.</p>
         <p style={{ fontSize: 12, color: "#3D4B66", marginTop: 4, fontFamily: "'JetBrains Mono', monospace" }}>ServiceNow • T&L Vertical • Voice Enabled 🎙️</p>
       </div>
 
