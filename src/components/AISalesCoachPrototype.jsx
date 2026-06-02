@@ -206,6 +206,7 @@ function useVoice() {
   const [transcript, setTranscript] = useState("");
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [voiceEnabled, setVoiceEnabled] = useState(true);
+  const [ttsError, setTtsError] = useState("");
   const recognitionRef = useRef(null);
   const audioElRef = useRef(null); // persistent <audio> element, unlocked on first gesture
   const audioSourceRef = useRef(null); // for non-iOS AudioContext source
@@ -321,13 +322,17 @@ function useVoice() {
 
     try {
       setIsSpeaking(true);
+      setTtsError("");
       const response = await fetch("/api/tts", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ text, voiceId }),
       });
 
-      if (!response.ok) throw new Error("TTS request failed");
+      if (!response.ok) {
+        const err = await response.json().catch(() => ({}));
+        throw new Error(`TTS API ${response.status}: ${err.error || "unknown"}`);
+      }
 
       const blob = await response.blob();
       const url = URL.createObjectURL(blob);
@@ -364,6 +369,7 @@ function useVoice() {
       }
     } catch (e) {
       console.error("ElevenLabs TTS error:", e);
+      setTtsError(e.message);
       setIsSpeaking(false);
       onDone?.();
     }
@@ -383,7 +389,7 @@ function useVoice() {
 
   const hasRecognition = !!recognitionRef.current;
 
-  return { isListening, transcript, setTranscript, isSpeaking, voiceEnabled, setVoiceEnabled, startListening, stopListening, speak, stopSpeaking, hasRecognition, unlockAudio };
+  return { isListening, transcript, setTranscript, isSpeaking, voiceEnabled, setVoiceEnabled, startListening, stopListening, speak, stopSpeaking, hasRecognition, unlockAudio, ttsError };
 }
 
 // ============================================================
@@ -847,6 +853,11 @@ Respond ONLY with valid JSON (no markdown):
             }}>
               {mode === "listening" ? "● LISTENING..." : mode === "speaking" ? "● CUSTOMER SPEAKING..." : mode === "thinking" ? "● THINKING..." : "TAP MIC TO RESPOND"}
             </span>
+            {voice.ttsError && (
+              <p style={{ fontSize: 10, color: "#DC3545", marginTop: 4, fontFamily: "'JetBrains Mono', monospace" }}>
+                ⚠ {voice.ttsError}
+              </p>
+            )}
           </div>
 
           {/* Waveform when listening */}
