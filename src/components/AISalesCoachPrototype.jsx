@@ -207,13 +207,17 @@ function useVoice() {
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [voiceEnabled, setVoiceEnabled] = useState(true);
   const [ttsError, setTtsError] = useState("");
-  const [pendingTranscript, setPendingTranscript] = useState(""); // captured but not yet sent
+  const [pendingTranscript, setPendingTranscript] = useState("");
+  const [micLevels, setMicLevels] = useState(new Array(12).fill(0));
   const recognitionRef = useRef(null);
   const audioElRef = useRef(null);
   const audioSourceRef = useRef(null);
   const audioCtxRef = useRef(null);
   const interimRef = useRef("");
-  const onEndSendRef = useRef(null); // callback set by RoleplayScreen to auto-send on iOS end
+  const onEndSendRef = useRef(null);
+  const micStreamRef = useRef(null);
+  const micAnalyserRef = useRef(null);
+  const micRafRef = useRef(null);
 
   // Called synchronously inside a user gesture — unlocks audio for iOS
   const unlockAudio = useCallback(() => {
@@ -269,6 +273,7 @@ function useVoice() {
 
         recognition.onend = () => {
           setIsListening(false);
+          stopMicMeter();
           // On iOS, recognition stops naturally — auto-send if we captured anything
           const captured = interimRef.current.trim();
           if (isIOS && captured) {
@@ -276,7 +281,6 @@ function useVoice() {
               onEndSendRef.current(captured);
               interimRef.current = "";
             } else {
-              // No send handler yet (before conversation started) — hold in pending
               setPendingTranscript(captured);
             }
           }
@@ -294,6 +298,44 @@ function useVoice() {
     };
   }, []);
 
+  const startMicMeter = useCallback(async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      micStreamRef.current = stream;
+      const ctx = new (window.AudioContext || window.webkitAudioContext)();
+      const source = ctx.createMediaStreamSource(stream);
+      const analyser = ctx.createAnalyser();
+      analyser.fftSize = 64;
+      analyser.smoothingTimeConstant = 0.6;
+      source.connect(analyser);
+      micAnalyserRef.current = { analyser, ctx };
+
+      const dataArray = new Uint8Array(analyser.frequencyBinCount);
+      const BAR_COUNT = 12;
+      const tick = () => {
+        analyser.getByteFrequencyData(dataArray);
+        const levels = Array.from({ length: BAR_COUNT }, (_, i) => {
+          const idx = Math.floor((i / BAR_COUNT) * dataArray.length * 0.6);
+          return Math.min(dataArray[idx] / 255, 1);
+        });
+        setMicLevels(levels);
+        micRafRef.current = requestAnimationFrame(tick);
+      };
+      micRafRef.current = requestAnimationFrame(tick);
+    } catch (e) {
+      console.log("Mic meter unavailable:", e.message);
+    }
+  }, []);
+
+  const stopMicMeter = useCallback(() => {
+    if (micRafRef.current) { cancelAnimationFrame(micRafRef.current); micRafRef.current = null; }
+    micStreamRef.current?.getTracks().forEach(t => t.stop());
+    micStreamRef.current = null;
+    micAnalyserRef.current?.ctx.close();
+    micAnalyserRef.current = null;
+    setMicLevels(new Array(12).fill(0));
+  }, []);
+
   const startListening = useCallback(() => {
     if (!recognitionRef.current) return;
     // iOS: recreate recognition instance each time (Safari requires fresh instance)
@@ -305,18 +347,20 @@ function useVoice() {
     interimRef.current = "";
     setTranscript("");
     setPendingTranscript("");
+    startMicMeter();
     try {
       recognitionRef.current.start();
       setIsListening(true);
-    } catch (e) { console.error("Start error:", e); }
-  }, []);
+    } catch (e) { console.error("Start error:", e); stopMicMeter(); }
+  }, [startMicMeter, stopMicMeter]);
 
   const stopListening = useCallback(() => {
+    stopMicMeter();
     if (recognitionRef.current && isListening) {
       recognitionRef.current.stop();
       setIsListening(false);
     }
-  }, [isListening]);
+  }, [isListening, stopMicMeter]);
 
   const speak = useCallback(async (text, voiceId, onDone) => {
     if (!voiceEnabled) { onDone?.(); return; }
@@ -403,7 +447,7 @@ function useVoice() {
 
   const hasRecognition = !!recognitionRef.current;
 
-  return { isListening, transcript, setTranscript, isSpeaking, voiceEnabled, setVoiceEnabled, startListening, stopListening, speak, stopSpeaking, hasRecognition, unlockAudio, ttsError, pendingTranscript, setPendingTranscript, onEndSendRef, interimRef };
+  return { isListening, transcript, setTranscript, isSpeaking, voiceEnabled, setVoiceEnabled, startListening, stopListening, speak, stopSpeaking, hasRecognition, unlockAudio, ttsError, pendingTranscript, setPendingTranscript, onEndSendRef, interimRef, micLevels };
 }
 
 // ============================================================
@@ -920,15 +964,26 @@ Respond ONLY with valid JSON (no markdown):
             )}
           </div>
 
-          {/* Waveform when listening */}
+          {/* Real mic level meter */}
           {voice.isListening && (
-            <div style={{ display: "flex", justifyContent: "center", gap: 3, marginBottom: 12, height: 28, alignItems: "center" }}>
-              {Array.from({ length: 12 }).map((_, i) => (
-                <div key={i} style={{
-                  width: 3, borderRadius: 2, background: "#DC3545",
-                  animation: `waveform 0.8s ease ${i * 0.07}s infinite`,
-                }} />
-              ))}
+            <div style={{ display: "flex", justifyContent: "center", gap: 3, marginBottom: 12, height: 36, alignItems: "center" }}>
+              {voice.micLevels.map((level, i) => {
+                const minH = 3;
+                const maxH = 34;
+                const h = Math.max(minH, Math.round(minH + level * (maxH - minH)));
+                // Color shifts green→yellow→red with volume
+                const r = Math.round(40 + level * 192);
+                const g = Math.round(220 - level * 120);
+                const color = `rgb(${r},${g},60)`;
+                return (
+                  <div key={i} style={{
+                    width: 4, borderRadius: 2,
+                    height: h,
+                    background: color,
+                    transition: "height 0.05s ease, background 0.1s ease",
+                  }} />
+                );
+              })}
             </div>
           )}
 
