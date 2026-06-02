@@ -1,4 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
+import { supabase } from "../lib/supabase";
+import ScenarioBuilder from "./ScenarioBuilder";
 
 // ============================================================
 // REPSIM — Pre-Sales Training Simulator (Voice Edition)
@@ -257,14 +259,31 @@ function useVoice() {
 // MAIN APP
 // ============================================================
 
-export default function AISalesCoach() {
+export default function AISalesCoach({ session }) {
   const [screen, setScreen] = useState("home");
   const [scenario, setScenario] = useState(null);
+  const [editScenario, setEditScenario] = useState(null);
   const [messages, setMessages] = useState([]);
   const [feedback, setFeedback] = useState(null);
   const [turnCount, setTurnCount] = useState(0);
+  const [scenarios, setScenarios] = useState([]);
+  const [scenariosLoading, setScenariosLoading] = useState(true);
+
+  useEffect(() => { loadScenarios(); }, []);
+
+  const loadScenarios = async () => {
+    setScenariosLoading(true);
+    const { data, error } = await supabase
+      .from("scenarios")
+      .select("*")
+      .order("is_builtin", { ascending: false })
+      .order("created_at", { ascending: true });
+    if (!error && data) setScenarios(data);
+    setScenariosLoading(false);
+  };
 
   const startScenario = (s) => { setScenario(s); setMessages([]); setTurnCount(0); setFeedback(null); setScreen("briefing"); };
+  const handleSignOut = () => supabase.auth.signOut();
 
   return (
     <div style={{
@@ -289,7 +308,25 @@ export default function AISalesCoach() {
         button:active { transform: scale(0.97); }
       `}</style>
 
-      {screen === "home" && <HomeScreen scenarios={SCENARIOS} onSelect={startScenario} />}
+      {screen === "home" && (
+        <HomeScreen
+          scenarios={scenarios}
+          loading={scenariosLoading}
+          onSelect={startScenario}
+          onNew={() => { setEditScenario(null); setScreen("builder"); }}
+          onEdit={(s) => { setEditScenario(s); setScreen("builder"); }}
+          onSignOut={handleSignOut}
+          session={session}
+        />
+      )}
+      {screen === "builder" && (
+        <ScenarioBuilder
+          onBack={() => setScreen("home")}
+          onApprove={(newScenario) => { loadScenarios(); setScreen("home"); }}
+          editScenario={editScenario}
+          session={session}
+        />
+      )}
       {screen === "briefing" && <BriefingScreen scenario={scenario} onStart={() => setScreen("roleplay")} onBack={() => setScreen("home")} />}
       {screen === "roleplay" && <RoleplayScreen scenario={scenario} messages={messages} setMessages={setMessages} turnCount={turnCount} setTurnCount={setTurnCount} onEnd={() => setScreen("debrief")} setFeedback={setFeedback} />}
       {screen === "debrief" && <DebriefScreen scenario={scenario} messages={messages} feedback={feedback} setFeedback={setFeedback} onHome={() => setScreen("home")} onRetry={() => startScenario(scenario)} />}
@@ -301,27 +338,35 @@ export default function AISalesCoach() {
 // HOME SCREEN
 // ============================================================
 
-function HomeScreen({ scenarios, onSelect }) {
+function HomeScreen({ scenarios, loading, onSelect, onNew, onEdit, onSignOut, session }) {
   return (
     <div style={{ padding: "0 20px 40px", animation: "fadeIn 0.5s ease" }}>
-      <div style={{ padding: "40px 0 32px", textAlign: "center" }}>
-        <div style={{
-          width: 56, height: 56, borderRadius: 14, margin: "0 auto 16px",
-          background: "linear-gradient(135deg, #1A6BF5 0%, #0D4CD4 100%)",
-          display: "flex", alignItems: "center", justifyContent: "center",
-          boxShadow: "0 8px 32px rgba(26,107,245,0.25)",
-        }}>
-          <span style={{ fontSize: 28 }}>🎯</span>
+      {/* Header */}
+      <div style={{ padding: "32px 0 24px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <div style={{
+            width: 44, height: 44, borderRadius: 11, flexShrink: 0,
+            background: "linear-gradient(135deg, #1A6BF5 0%, #0D4CD4 100%)",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            boxShadow: "0 6px 20px rgba(26,107,245,0.25)",
+            fontSize: 16, fontWeight: 700, color: "#fff",
+            fontFamily: "'JetBrains Mono', monospace", letterSpacing: -0.5,
+          }}>SC</div>
+          <div>
+            <h1 style={{ fontSize: 20, fontWeight: 700, letterSpacing: -0.5, margin: 0, color: "#fff" }}>Sales Craft</h1>
+            <p style={{ fontSize: 11, color: "#3D4B66", fontFamily: "'JetBrains Mono', monospace" }}>Voice Enabled 🎙️</p>
+          </div>
         </div>
-        <h1 style={{ fontSize: 26, fontWeight: 700, letterSpacing: -0.5, margin: "0 0 6px", color: "#fff" }}>Sales Craft</h1>
-        <p style={{ fontSize: 13, color: "#6B7A99", fontWeight: 500 }}>Master the craft of technical selling.</p>
-        <p style={{ fontSize: 12, color: "#3D4B66", marginTop: 4, fontFamily: "'JetBrains Mono', monospace" }}>ServiceNow • T&L Vertical • Voice Enabled 🎙️</p>
+        <button onClick={onSignOut} style={{
+          background: "none", border: "1px solid #1E2A42", borderRadius: 8,
+          padding: "6px 10px", fontSize: 11, color: "#4D5E80", cursor: "pointer",
+        }}>Sign out</button>
       </div>
 
       <div style={{
         background: "linear-gradient(135deg, rgba(26,107,245,0.08) 0%, rgba(26,107,245,0.02) 100%)",
         border: "1px solid rgba(26,107,245,0.15)", borderRadius: 12,
-        padding: "14px 16px", marginBottom: 24,
+        padding: "14px 16px", marginBottom: 20,
         display: "flex", alignItems: "center", gap: 12,
       }}>
         <span style={{ fontSize: 20 }}>🎙️</span>
@@ -330,35 +375,59 @@ function HomeScreen({ scenarios, onSelect }) {
         </p>
       </div>
 
-      <p style={{ fontSize: 11, fontWeight: 600, color: "#3D4B66", textTransform: "uppercase", letterSpacing: 1.5, marginBottom: 12 }}>Scenarios</p>
-
-      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-        {scenarios.map((s, i) => (
-          <button key={s.id} onClick={() => onSelect(s)}
-            style={{
-              width: "100%", textAlign: "left", background: "#111827",
-              border: "1px solid #1E2A42", borderRadius: 14, padding: "16px 18px",
-              transition: "all 0.2s", animation: `fadeIn 0.4s ease ${i * 0.08}s both`,
-            }}
-            onMouseEnter={e => { e.currentTarget.style.borderColor = "#1A6BF5"; e.currentTarget.style.background = "#131D30"; }}
-            onMouseLeave={e => { e.currentTarget.style.borderColor = "#1E2A42"; e.currentTarget.style.background = "#111827"; }}
-          >
-            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
-              <span style={{
-                fontSize: 10, fontWeight: 700, padding: "3px 8px", borderRadius: 6,
-                background: DIFF_COLORS[s.difficulty] + "18", color: DIFF_COLORS[s.difficulty],
-                textTransform: "uppercase", letterSpacing: 0.8, fontFamily: "'JetBrains Mono', monospace",
-              }}>{s.difficulty}</span>
-              <span style={{ fontSize: 10, color: "#3D4B66", fontFamily: "'JetBrains Mono', monospace" }}>{s.product}</span>
-            </div>
-            <p style={{ fontSize: 15, fontWeight: 600, color: "#E8ECF4", margin: "0 0 6px", lineHeight: 1.3 }}>{s.title}</p>
-            <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12, color: "#6B7A99" }}>
-              <span>{s.persona} — {s.personaTitle}</span>
-            </div>
-            <p style={{ fontSize: 11, color: "#3D4B66", marginTop: 4 }}>{s.company}</p>
-          </button>
-        ))}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+        <p style={{ fontSize: 11, fontWeight: 600, color: "#3D4B66", textTransform: "uppercase", letterSpacing: 1.5 }}>Scenarios</p>
+        <button onClick={onNew} style={{
+          padding: "6px 12px", borderRadius: 8, border: "none",
+          background: "linear-gradient(135deg, #1A6BF5, #0D4CD4)",
+          color: "#fff", fontSize: 12, fontWeight: 600, cursor: "pointer",
+        }}>+ New</button>
       </div>
+
+      {loading ? (
+        <div style={{ textAlign: "center", padding: "40px 0" }}>
+          <p style={{ fontSize: 13, color: "#4D5E80" }}>Loading scenarios...</p>
+        </div>
+      ) : (
+        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          {scenarios.map((s, i) => (
+            <div key={s.id} style={{ position: "relative", animation: `fadeIn 0.4s ease ${i * 0.06}s both` }}>
+              <button onClick={() => onSelect(s)}
+                style={{
+                  width: "100%", textAlign: "left", background: "#111827",
+                  border: "1px solid #1E2A42", borderRadius: 14, padding: "16px 18px",
+                  paddingRight: s.is_builtin ? "18px" : "52px",
+                  transition: "all 0.2s",
+                }}
+                onMouseEnter={e => { e.currentTarget.style.borderColor = "#1A6BF5"; e.currentTarget.style.background = "#131D30"; }}
+                onMouseLeave={e => { e.currentTarget.style.borderColor = "#1E2A42"; e.currentTarget.style.background = "#111827"; }}
+              >
+                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
+                  <span style={{
+                    fontSize: 10, fontWeight: 700, padding: "3px 8px", borderRadius: 6,
+                    background: DIFF_COLORS[s.difficulty] + "18", color: DIFF_COLORS[s.difficulty],
+                    textTransform: "uppercase", letterSpacing: 0.8, fontFamily: "'JetBrains Mono', monospace",
+                  }}>{s.difficulty}</span>
+                  <span style={{ fontSize: 10, color: "#3D4B66", fontFamily: "'JetBrains Mono', monospace" }}>{s.product}</span>
+                  {!s.is_builtin && <span style={{ fontSize: 10, color: "#1A6BF5", fontFamily: "'JetBrains Mono', monospace" }}>custom</span>}
+                </div>
+                <p style={{ fontSize: 15, fontWeight: 600, color: "#E8ECF4", margin: "0 0 6px", lineHeight: 1.3 }}>{s.title}</p>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12, color: "#6B7A99" }}>
+                  <span>{s.persona} — {s.personaTitle}</span>
+                </div>
+                <p style={{ fontSize: 11, color: "#3D4B66", marginTop: 4 }}>{s.company}</p>
+              </button>
+              {!s.is_builtin && (
+                <button onClick={(e) => { e.stopPropagation(); onEdit(s); }} style={{
+                  position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)",
+                  background: "#1E2A42", border: "none", borderRadius: 6,
+                  padding: "5px 8px", fontSize: 11, color: "#6B7A99", cursor: "pointer",
+                }}>Edit</button>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
