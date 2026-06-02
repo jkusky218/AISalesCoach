@@ -141,23 +141,37 @@ const DIFF_COLORS = { Intermediate: "#E8A817", Advanced: "#DC3545" };
 
 const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
 
+// Tiny silent MP3 — used to unlock <audio> on iOS during a user gesture
+const SILENT_MP3 = "data:audio/mpeg;base64,SUQzBAAAAAAAI1RTU0UAAAAPAAADTGF2ZjU4LjI5LjEwMAAAAAAAAAAAAAAA//tQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWGluZwAAAA8AAAACAAADQADMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzM//////////////////////////////////////////////////////////////////8AAAAATGF2YzU4LjU0AAAAAAAAAAAAAAAAJAYAAAAAAAAAQEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
+
 function useVoice() {
   const [isListening, setIsListening] = useState(false);
   const [transcript, setTranscript] = useState("");
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [voiceEnabled, setVoiceEnabled] = useState(true);
   const recognitionRef = useRef(null);
+  const audioElRef = useRef(null); // persistent <audio> element, unlocked on first gesture
+  const audioSourceRef = useRef(null); // for non-iOS AudioContext source
   const audioCtxRef = useRef(null);
-  const audioSourceRef = useRef(null);
   const interimRef = useRef("");
 
-  // Unlock AudioContext on first user gesture (required by iOS)
+  // Called synchronously inside a user gesture — unlocks audio for iOS
   const unlockAudio = useCallback(() => {
-    if (!audioCtxRef.current) {
-      audioCtxRef.current = new (window.AudioContext || window.webkitAudioContext)();
+    // Create and unlock a persistent <audio> element
+    if (!audioElRef.current) {
+      const el = new Audio();
+      el.src = SILENT_MP3;
+      el.play().catch(() => {});
+      audioElRef.current = el;
     }
-    if (audioCtxRef.current.state === "suspended") {
-      audioCtxRef.current.resume();
+    // Also create AudioContext for non-iOS
+    if (!isIOS) {
+      if (!audioCtxRef.current) {
+        audioCtxRef.current = new (window.AudioContext || window.webkitAudioContext)();
+      }
+      if (audioCtxRef.current.state === "suspended") {
+        audioCtxRef.current.resume();
+      }
     }
   }, []);
 
@@ -236,9 +250,16 @@ function useVoice() {
     if (!voiceEnabled) { onDone?.(); return; }
 
     // Stop any current playback
-    if (audioSourceRef.current) {
-      try { audioSourceRef.current.stop(); } catch (_) {}
-      audioSourceRef.current = null;
+    if (isIOS) {
+      if (audioElRef.current) {
+        audioElRef.current.pause();
+        audioElRef.current.src = "";
+      }
+    } else {
+      if (audioSourceRef.current) {
+        try { audioSourceRef.current.stop(); } catch (_) {}
+        audioSourceRef.current = null;
+      }
     }
 
     try {
@@ -251,28 +272,39 @@ function useVoice() {
 
       if (!response.ok) throw new Error("TTS request failed");
 
-      const arrayBuffer = await response.arrayBuffer();
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
 
-      // Use AudioContext for iOS compatibility — new Audio() is blocked after async on iOS
-      if (!audioCtxRef.current) {
-        audioCtxRef.current = new (window.AudioContext || window.webkitAudioContext)();
+      if (isIOS) {
+        // iOS: reuse the pre-unlocked <audio> element
+        const el = audioElRef.current || new Audio();
+        audioElRef.current = el;
+        el.src = url;
+        el.onended = () => { URL.revokeObjectURL(url); setIsSpeaking(false); onDone?.(); };
+        el.onerror = () => { URL.revokeObjectURL(url); setIsSpeaking(false); onDone?.(); };
+        await el.play();
+      } else {
+        // Desktop/Android: use AudioContext for reliable async playback
+        if (!audioCtxRef.current) {
+          audioCtxRef.current = new (window.AudioContext || window.webkitAudioContext)();
+        }
+        const ctx = audioCtxRef.current;
+        if (ctx.state === "suspended") await ctx.resume();
+
+        const arrayBuffer = await fetch(url).then(r => r.arrayBuffer());
+        URL.revokeObjectURL(url);
+
+        // decodeAudioData: use callback form for max browser compatibility
+        const decoded = await new Promise((resolve, reject) =>
+          ctx.decodeAudioData(arrayBuffer, resolve, reject)
+        );
+        const source = ctx.createBufferSource();
+        source.buffer = decoded;
+        source.connect(ctx.destination);
+        audioSourceRef.current = source;
+        source.onended = () => { audioSourceRef.current = null; setIsSpeaking(false); onDone?.(); };
+        source.start(0);
       }
-      const ctx = audioCtxRef.current;
-      if (ctx.state === "suspended") await ctx.resume();
-
-      const decoded = await ctx.decodeAudioData(arrayBuffer);
-      const source = ctx.createBufferSource();
-      source.buffer = decoded;
-      source.connect(ctx.destination);
-      audioSourceRef.current = source;
-
-      source.onended = () => {
-        audioSourceRef.current = null;
-        setIsSpeaking(false);
-        onDone?.();
-      };
-
-      source.start(0);
     } catch (e) {
       console.error("ElevenLabs TTS error:", e);
       setIsSpeaking(false);
@@ -281,9 +313,13 @@ function useVoice() {
   }, [voiceEnabled]);
 
   const stopSpeaking = useCallback(() => {
-    if (audioSourceRef.current) {
-      try { audioSourceRef.current.stop(); } catch (_) {}
-      audioSourceRef.current = null;
+    if (isIOS) {
+      if (audioElRef.current) { audioElRef.current.pause(); audioElRef.current.src = ""; }
+    } else {
+      if (audioSourceRef.current) {
+        try { audioSourceRef.current.stop(); } catch (_) {}
+        audioSourceRef.current = null;
+      }
     }
     setIsSpeaking(false);
   }, []);
