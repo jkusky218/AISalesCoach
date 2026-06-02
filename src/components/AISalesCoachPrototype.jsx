@@ -868,7 +868,7 @@ Respond ONLY with valid JSON (no markdown):
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100vh" }}>
       {/* Header */}
-      <div style={{ padding: "12px 16px", borderBottom: "1px solid #1E2A42", display: "flex", alignItems: "center", justifyContent: "space-between", background: "#0F1624" }}>
+      <div style={{ padding: "calc(env(safe-area-inset-top) + 12px) 16px 12px", borderBottom: "1px solid #1E2A42", display: "flex", alignItems: "center", justifyContent: "space-between", background: "#0F1624" }}>
         <div>
           <p style={{ fontSize: 13, fontWeight: 600, color: "#E8ECF4", margin: 0 }}>{scenario.persona}</p>
           <p style={{ fontSize: 11, color: "#4D5E80", margin: 0, fontFamily: "'JetBrains Mono', monospace" }}>{scenario.personaTitle}</p>
@@ -947,7 +947,7 @@ Respond ONLY with valid JSON (no markdown):
 
       {/* Voice Input Bar */}
       {started && (
-        <div style={{ padding: "12px 16px 20px", borderTop: "1px solid #1E2A42", background: "#0A0E17" }}>
+        <div style={{ padding: "12px 16px calc(env(safe-area-inset-bottom) + 20px)", borderTop: "1px solid #1E2A42", background: "#0A0E17" }}>
           {/* Status indicator */}
           <div style={{ textAlign: "center", marginBottom: 10 }}>
             <span style={{
