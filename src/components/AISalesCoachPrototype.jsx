@@ -207,11 +207,13 @@ function useVoice() {
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [voiceEnabled, setVoiceEnabled] = useState(true);
   const [ttsError, setTtsError] = useState("");
+  const [pendingTranscript, setPendingTranscript] = useState(""); // captured but not yet sent
   const recognitionRef = useRef(null);
-  const audioElRef = useRef(null); // persistent <audio> element, unlocked on first gesture
-  const audioSourceRef = useRef(null); // for non-iOS AudioContext source
+  const audioElRef = useRef(null);
+  const audioSourceRef = useRef(null);
   const audioCtxRef = useRef(null);
   const interimRef = useRef("");
+  const onEndSendRef = useRef(null); // callback set by RoleplayScreen to auto-send on iOS end
 
   // Called synchronously inside a user gesture — unlocks audio for iOS
   const unlockAudio = useCallback(() => {
@@ -267,6 +269,17 @@ function useVoice() {
 
         recognition.onend = () => {
           setIsListening(false);
+          // On iOS, recognition stops naturally — auto-send if we captured anything
+          const captured = interimRef.current.trim();
+          if (isIOS && captured) {
+            if (onEndSendRef.current) {
+              onEndSendRef.current(captured);
+              interimRef.current = "";
+            } else {
+              // No send handler yet (before conversation started) — hold in pending
+              setPendingTranscript(captured);
+            }
+          }
         };
 
         return recognition;
@@ -291,6 +304,7 @@ function useVoice() {
     }
     interimRef.current = "";
     setTranscript("");
+    setPendingTranscript("");
     try {
       recognitionRef.current.start();
       setIsListening(true);
@@ -389,7 +403,7 @@ function useVoice() {
 
   const hasRecognition = !!recognitionRef.current;
 
-  return { isListening, transcript, setTranscript, isSpeaking, voiceEnabled, setVoiceEnabled, startListening, stopListening, speak, stopSpeaking, hasRecognition, unlockAudio, ttsError };
+  return { isListening, transcript, setTranscript, isSpeaking, voiceEnabled, setVoiceEnabled, startListening, stopListening, speak, stopSpeaking, hasRecognition, unlockAudio, ttsError, pendingTranscript, setPendingTranscript, onEndSendRef, interimRef };
 }
 
 // ============================================================
@@ -687,6 +701,23 @@ function RoleplayScreen({ scenario, messages, setMessages, turnCount, setTurnCou
     if (voice.transcript) setInput(voice.transcript);
   }, [voice.transcript]);
 
+  // Register auto-send callback for iOS (recognition ends naturally)
+  useEffect(() => {
+    voice.onEndSendRef.current = (text) => {
+      if (!loading) sendMessage(text);
+    };
+    return () => { voice.onEndSendRef.current = null; };
+  });
+
+  // If there's a pending transcript from before conversation started, send it now
+  useEffect(() => {
+    if (started && voice.pendingTranscript && !loading) {
+      const t = voice.pendingTranscript;
+      voice.setPendingTranscript("");
+      sendMessage(t);
+    }
+  }, [started, voice.pendingTranscript]);
+
   const callClaude = async (msgs, sys) => {
     try {
       const r = await fetch("/api/chat", {
@@ -742,14 +773,17 @@ RULES:
   };
 
   const toggleMic = () => {
-    voice.unlockAudio(); // Ensure AudioContext is unlocked on every tap (iOS)
+    voice.unlockAudio();
     if (voice.isListening) {
       voice.stopListening();
-      // Auto-send after stopping if there's content
-      setTimeout(() => {
-        const t = voice.transcript?.trim();
-        if (t) sendMessage(t);
-      }, 300);
+      // iOS: onend fires automatically and calls onEndSendRef — nothing to do here
+      // Desktop: onend doesn't auto-send, so we trigger it after a short delay
+      if (!isIOS) {
+        setTimeout(() => {
+          const captured = voice.interimRef?.current?.trim() || input.trim();
+          if (captured) sendMessage(captured);
+        }, 200);
+      }
     } else {
       voice.stopSpeaking();
       setInput(""); voice.setTranscript("");
