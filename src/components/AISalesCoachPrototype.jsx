@@ -17,7 +17,7 @@ const SCENARIOS = [
     company: "Meridian Freight Corp",
     companyDesc: "$6B global freight forwarder, 15,000 employees, 200+ distribution centers",
     difficulty: "Intermediate",
-    voiceId: "21m00Tcm4TlvDq8ikWAM", // Rachel — calm, professional female
+    voiceId: "EXAVITQu4vr4xnSDxMaL", // Sarah — soft, clear female
     setup: "You're 10 minutes into a first discovery call. The prospect agreed to the meeting because they're drowning in customer complaints about shipment visibility. They currently use Salesforce Service Cloud and a custom-built tracking portal. The VP is skeptical — she's been burned by platform vendors before.",
     objectives: ["Uncover 2-3 specific pain points tied to their current stack", "Connect pain to CSM capabilities without pitching features", "Earn a follow-up meeting with her and the CIO"],
     personaPrompt: `You are Jennifer Huang, VP of Customer Experience at Meridian Freight Corp, a $6B global freight forwarder.
@@ -47,7 +47,7 @@ YOUR PERSONALITY:
     company: "Pacific Intermodal",
     companyDesc: "$3.2B intermodal shipping, 8,000 employees, heavy OT/IoT environment",
     difficulty: "Advanced",
-    voiceId: "pNInz6obpgDQGcFmaJgB", // Adam — deep, authoritative male
+    voiceId: "nPczCjzI2devNBz1zQrb", // Brian — authoritative male
     setup: "You're in a competitive deal against Palo Alto XSOAR and CrowdStrike. The CISO had a bad experience with ServiceNow SecOps 2 years ago and thinks it's 'just a ticketing system.' You need to reposition with the Armis and Veza acquisitions.",
     objectives: ["Reframe ServiceNow Security beyond ticketing", "Position Armis asset discovery for OT/IoT", "Introduce Veza identity security for AI agent governance", "Neutralize Palo Alto and CrowdStrike threat"],
     personaPrompt: `You are David Kowalski, CISO of Pacific Intermodal, a $3.2B intermodal shipping company.
@@ -78,7 +78,7 @@ YOUR PERSONALITY:
     company: "TransGlobal Logistics",
     companyDesc: "$9B contract logistics, 45,000 employees, 500+ warehouses globally",
     difficulty: "Advanced",
-    voiceId: "TxGEqnHWrfWFTfGW9XjX", // Josh — smooth, strategic male
+    voiceId: "JBFqnCBsd6RMkjVDRZzb", // George — deep, warm male
     setup: "TransGlobal has used ServiceNow ITOM for 3 years. They love Discovery and Service Mapping. The CIO wants to explore the full platform but finance is pushing back. Make the case for ITSM, HRSD, and CSM expansion.",
     objectives: ["Build on ITOM success to justify expansion", "Address CFO concern about vendor consolidation ROI", "Map T&L pain points to ITSM, HRSD, and CSM", "Get agreement to a joint value assessment"],
     personaPrompt: `You are Robert Chen, CIO of TransGlobal Logistics, a $9B contract logistics company.
@@ -110,7 +110,7 @@ YOUR PERSONALITY:
     company: "Summit Distribution",
     companyDesc: "$2.1B regional distribution, 6,000 employees, 80 fulfillment centers",
     difficulty: "Intermediate",
-    voiceId: "AZnzlk1XvdvUeBnXmlld", // Domi — strong, confident female
+    voiceId: "XB0fDUnXU5powFXDhCwa", // Charlotte — confident female
     setup: "The VP of Operations saw Now Assist at Knowledge and wants to understand how AI agents could help warehouse operations. She's technical but not IT. Translate AI into operational outcomes.",
     objectives: ["Explain Now Assist in operational language", "Connect AI to specific warehouse pain points", "Address AI reliability in safety-critical environments", "Propose a focused POC"],
     personaPrompt: `You are Maria Santos, VP of Operations at Summit Distribution, a $2.1B regional distribution company.

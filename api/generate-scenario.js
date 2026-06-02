@@ -24,10 +24,10 @@ INSTRUCTIONS:
 2. If any real names or company names appear in the supporting material, replace them with fictional but realistic alternatives in the same industry and sub-segment (e.g., keep "large regional freight forwarder" but rename the company).
 3. The difficulty should be either "Intermediate" or "Advanced" based on the complexity described.
 4. Choose the most appropriate ElevenLabs voice ID for the persona's gender and character:
-   - Professional female (calm): 21m00Tcm4TlvDq8ikWAM
-   - Strong female (confident): AZnzlk1XvdvUeBnXmlld
-   - Deep male (authoritative): pNInz6obpgDQGcFmaJgB
-   - Smooth male (strategic): TxGEqnHWrfWFTfGW9XjX
+   - Female (soft, clear): EXAVITQu4vr4xnSDxMaL
+   - Female (confident): XB0fDUnXU5powFXDhCwa
+   - Male (authoritative): nPczCjzI2devNBz1zQrb
+   - Male (deep, warm): JBFqnCBsd6RMkjVDRZzb
 
 Respond ONLY with valid JSON (no markdown, no explanation):
 {
