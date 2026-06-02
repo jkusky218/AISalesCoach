@@ -882,11 +882,6 @@ Respond ONLY with valid JSON (no markdown):
           <div style={{ padding: "4px 10px", borderRadius: 8, background: "rgba(26,107,245,0.1)", border: "1px solid rgba(26,107,245,0.2)", fontFamily: "'JetBrains Mono', monospace", fontSize: 11, color: "#1A6BF5" }}>
             Turn {turnCount}
           </div>
-          <button onClick={handleEnd} disabled={messages.length < 2 || loading} style={{
-            padding: "6px 12px", borderRadius: 8, border: "1px solid #DC354540",
-            background: "rgba(220,53,69,0.08)", color: "#DC3545",
-            fontSize: 11, fontWeight: 600, opacity: messages.length < 2 ? 0.4 : 1,
-          }}>End</button>
         </div>
       </div>
 
@@ -1029,6 +1024,19 @@ Respond ONLY with valid JSON (no markdown):
               <span style={{ fontSize: 16 }}>→</span>
             </button>
           </div>
+
+          {/* End session button — full width, always reachable */}
+          {messages.length >= 2 && (
+            <button onClick={handleEnd} disabled={loading} style={{
+              width: "100%", marginTop: 10, padding: "11px 0", borderRadius: 10,
+              border: "1px solid rgba(220,53,69,0.3)",
+              background: "rgba(220,53,69,0.08)", color: "#DC3545",
+              fontSize: 13, fontWeight: 600, cursor: "pointer",
+              opacity: loading ? 0.4 : 1,
+            }}>
+              {loading ? "Generating debrief..." : "End Session & Get Debrief →"}
+            </button>
+          )}
         </div>
       )}
     </div>
