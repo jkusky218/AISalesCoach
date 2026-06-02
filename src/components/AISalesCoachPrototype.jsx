@@ -15,6 +15,7 @@ const SCENARIOS = [
     company: "Meridian Freight Corp",
     companyDesc: "$6B global freight forwarder, 15,000 employees, 200+ distribution centers",
     difficulty: "Intermediate",
+    voiceId: "21m00Tcm4TlvDq8ikWAM", // Rachel — calm, professional female
     setup: "You're 10 minutes into a first discovery call. The prospect agreed to the meeting because they're drowning in customer complaints about shipment visibility. They currently use Salesforce Service Cloud and a custom-built tracking portal. The VP is skeptical — she's been burned by platform vendors before.",
     objectives: ["Uncover 2-3 specific pain points tied to their current stack", "Connect pain to CSM capabilities without pitching features", "Earn a follow-up meeting with her and the CIO"],
     personaPrompt: `You are Jennifer Huang, VP of Customer Experience at Meridian Freight Corp, a $6B global freight forwarder.
@@ -44,6 +45,7 @@ YOUR PERSONALITY:
     company: "Pacific Intermodal",
     companyDesc: "$3.2B intermodal shipping, 8,000 employees, heavy OT/IoT environment",
     difficulty: "Advanced",
+    voiceId: "pNInz6obpgDQGcFmaJgB", // Adam — deep, authoritative male
     setup: "You're in a competitive deal against Palo Alto XSOAR and CrowdStrike. The CISO had a bad experience with ServiceNow SecOps 2 years ago and thinks it's 'just a ticketing system.' You need to reposition with the Armis and Veza acquisitions.",
     objectives: ["Reframe ServiceNow Security beyond ticketing", "Position Armis asset discovery for OT/IoT", "Introduce Veza identity security for AI agent governance", "Neutralize Palo Alto and CrowdStrike threat"],
     personaPrompt: `You are David Kowalski, CISO of Pacific Intermodal, a $3.2B intermodal shipping company.
@@ -74,6 +76,7 @@ YOUR PERSONALITY:
     company: "TransGlobal Logistics",
     companyDesc: "$9B contract logistics, 45,000 employees, 500+ warehouses globally",
     difficulty: "Advanced",
+    voiceId: "TxGEqnHWrfWFTfGW9XjX", // Josh — smooth, strategic male
     setup: "TransGlobal has used ServiceNow ITOM for 3 years. They love Discovery and Service Mapping. The CIO wants to explore the full platform but finance is pushing back. Make the case for ITSM, HRSD, and CSM expansion.",
     objectives: ["Build on ITOM success to justify expansion", "Address CFO concern about vendor consolidation ROI", "Map T&L pain points to ITSM, HRSD, and CSM", "Get agreement to a joint value assessment"],
     personaPrompt: `You are Robert Chen, CIO of TransGlobal Logistics, a $9B contract logistics company.
@@ -105,6 +108,7 @@ YOUR PERSONALITY:
     company: "Summit Distribution",
     companyDesc: "$2.1B regional distribution, 6,000 employees, 80 fulfillment centers",
     difficulty: "Intermediate",
+    voiceId: "AZnzlk1XvdvUeBnXmlld", // Domi — strong, confident female
     setup: "The VP of Operations saw Now Assist at Knowledge and wants to understand how AI agents could help warehouse operations. She's technical but not IT. Translate AI into operational outcomes.",
     objectives: ["Explain Now Assist in operational language", "Connect AI to specific warehouse pain points", "Address AI reliability in safety-critical environments", "Propose a focused POC"],
     personaPrompt: `You are Maria Santos, VP of Operations at Summit Distribution, a $2.1B regional distribution company.
@@ -139,7 +143,7 @@ function useVoice() {
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [voiceEnabled, setVoiceEnabled] = useState(true);
   const recognitionRef = useRef(null);
-  const synthRef = useRef(window.speechSynthesis);
+  const audioRef = useRef(null);
 
   useEffect(() => {
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -167,13 +171,11 @@ function useVoice() {
         setIsListening(false);
       };
 
-      recognition.onend = () => {
-        setIsListening(false);
-      };
+      recognition.onend = () => setIsListening(false);
 
       recognitionRef.current = recognition;
     }
-    return () => { synthRef.current?.cancel(); };
+    return () => { audioRef.current?.pause(); };
   }, []);
 
   const startListening = useCallback(() => {
@@ -193,29 +195,56 @@ function useVoice() {
     }
   }, [isListening]);
 
-  const speak = useCallback((text, onDone) => {
-    if (!voiceEnabled || !synthRef.current) {
-      onDone?.();
-      return;
+  const speak = useCallback(async (text, voiceId, onDone) => {
+    if (!voiceEnabled) { onDone?.(); return; }
+
+    // Stop any current playback
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current = null;
     }
-    synthRef.current.cancel();
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.rate = 1.0;
-    utterance.pitch = 1.0;
 
-    // Try to pick a natural voice
-    const voices = synthRef.current.getVoices();
-    const preferred = voices.find(v => v.name.includes("Samantha") || v.name.includes("Karen") || v.name.includes("Daniel") || v.name.includes("Google US"));
-    if (preferred) utterance.voice = preferred;
+    try {
+      setIsSpeaking(true);
+      const response = await fetch("/api/tts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text, voiceId }),
+      });
 
-    utterance.onstart = () => setIsSpeaking(true);
-    utterance.onend = () => { setIsSpeaking(false); onDone?.(); };
-    utterance.onerror = () => { setIsSpeaking(false); onDone?.(); };
-    synthRef.current.speak(utterance);
+      if (!response.ok) throw new Error("TTS request failed");
+
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const audio = new Audio(url);
+      audioRef.current = audio;
+
+      audio.onended = () => {
+        URL.revokeObjectURL(url);
+        audioRef.current = null;
+        setIsSpeaking(false);
+        onDone?.();
+      };
+      audio.onerror = () => {
+        URL.revokeObjectURL(url);
+        audioRef.current = null;
+        setIsSpeaking(false);
+        onDone?.();
+      };
+
+      await audio.play();
+    } catch (e) {
+      console.error("ElevenLabs TTS error:", e);
+      setIsSpeaking(false);
+      onDone?.();
+    }
   }, [voiceEnabled]);
 
   const stopSpeaking = useCallback(() => {
-    synthRef.current?.cancel();
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current = null;
+    }
     setIsSpeaking(false);
   }, []);
 
@@ -432,7 +461,7 @@ RULES:
     );
     setMessages([{ role: "customer", text }]);
     setLoading(false); setMode("speaking");
-    voice.speak(text, () => setMode("idle"));
+    voice.speak(text, scenario.voiceId, () => setMode("idle"));
   };
 
   const sendMessage = async (overrideText) => {
@@ -454,7 +483,7 @@ RULES:
     const text = await callClaude(apiMsgs, sysPrompt(turnCount + 1));
     setMessages(prev => [...prev, { role: "customer", text }]);
     setLoading(false); setMode("speaking");
-    voice.speak(text, () => setMode("idle"));
+    voice.speak(text, scenario.voiceId, () => setMode("idle"));
   };
 
   const toggleMic = () => {
