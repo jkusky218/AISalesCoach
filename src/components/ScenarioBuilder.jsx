@@ -288,7 +288,7 @@ const screenStyle = {
 
 const backBtnStyle = {
   background: 'none', border: 'none', color: '#6B7A99',
-  fontSize: 13, padding: '20px 0 16px', cursor: 'pointer',
+  fontSize: 13, padding: 'calc(env(safe-area-inset-top) + 16px) 0 16px', cursor: 'pointer',
   display: 'block',
 };
 

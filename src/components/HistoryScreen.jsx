@@ -39,7 +39,7 @@ export default function HistoryScreen({ session, onBack, onViewDebrief }) {
       background: '#0A0E17', color: '#E8ECF4',
     }}>
       <div style={{ padding: '0 20px 40px' }}>
-        <div style={{ paddingTop: 'calc(env(safe-area-inset-top) + 16px)', paddingBottom: 16, display: 'flex', alignItems: 'center', gap: 12 }}>
+        <div style={{ paddingTop: 'calc(env(safe-area-inset-top) + 12px)', paddingBottom: 16, display: 'flex', alignItems: 'center', gap: 12 }}>
           <button onClick={onBack} style={{ background: 'none', border: 'none', color: '#6B7A99', fontSize: 13, cursor: 'pointer', padding: 0 }}>← Back</button>
           <p style={{ fontSize: 15, fontWeight: 600, color: '#E8ECF4', margin: 0 }}>Session History</p>
         </div>

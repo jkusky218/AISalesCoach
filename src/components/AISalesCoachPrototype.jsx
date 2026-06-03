@@ -678,7 +678,7 @@ function HomeScreen({ scenarios, loading, onSelect, onNew, onEdit, onSignOut, on
 function BriefingScreen({ scenario, onStart, onBack }) {
   return (
     <div style={{ padding: "0 20px 40px", animation: "fadeIn 0.4s ease" }}>
-      <button onClick={onBack} style={{ background: "none", border: "none", color: "#6B7A99", fontSize: 13, padding: "20px 0 16px" }}>← Back</button>
+      <button onClick={onBack} style={{ background: "none", border: "none", color: "#6B7A99", fontSize: 13, padding: "calc(env(safe-area-inset-top) + 16px) 0 16px" }}>← Back</button>
 
       <div style={{ background: "#111827", border: "1px solid #1E2A42", borderRadius: 16, padding: "24px 20px", marginBottom: 16 }}>
         <span style={{ fontSize: 10, fontWeight: 700, padding: "3px 8px", borderRadius: 6, background: DIFF_COLORS[scenario.difficulty] + "18", color: DIFF_COLORS[scenario.difficulty], textTransform: "uppercase", letterSpacing: 0.8, fontFamily: "'JetBrains Mono', monospace" }}>{scenario.difficulty}</span>
