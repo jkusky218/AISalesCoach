@@ -925,10 +925,10 @@ Respond ONLY with valid JSON (no markdown):
           <div style={{ textAlign: "center", marginBottom: 10 }}>
             <span style={{
               fontSize: 11, fontWeight: 600, letterSpacing: 0.5,
-              color: mode === "listening" ? "#DC3545" : mode === "speaking" ? "#1A6BF5" : mode === "thinking" ? "#E8A817" : "#3D4B66",
+              color: mode === "speaking" ? "#1A6BF5" : mode === "thinking" ? "#E8A817" : "#3D4B66",
               fontFamily: "'JetBrains Mono', monospace",
             }}>
-              {mode === "listening" ? "● LISTENING..." : mode === "speaking" ? "● CUSTOMER SPEAKING..." : mode === "thinking" ? "● THINKING..." : "TAP MIC TO RESPOND"}
+              {mode === "speaking" ? "● CUSTOMER SPEAKING..." : mode === "thinking" ? "● THINKING..." : "TYPE YOUR RESPONSE"}
             </span>
             {voice.ttsError && (
               <p style={{ fontSize: 10, color: "#DC3545", marginTop: 4, fontFamily: "'JetBrains Mono', monospace" }}>
@@ -937,69 +937,37 @@ Respond ONLY with valid JSON (no markdown):
             )}
           </div>
 
-          {/* Real mic level meter */}
-          {voice.isListening && (
-            <div style={{ display: "flex", justifyContent: "center", gap: 3, marginBottom: 12, height: 36, alignItems: "center" }}>
-              {voice.micLevels.map((level, i) => {
-                const minH = 3;
-                const maxH = 34;
-                const h = Math.max(minH, Math.round(minH + level * (maxH - minH)));
-                // Color shifts green→yellow→red with volume
-                const r = Math.round(40 + level * 192);
-                const g = Math.round(220 - level * 120);
-                const color = `rgb(${r},${g},60)`;
-                return (
-                  <div key={i} style={{
-                    width: 4, borderRadius: 2,
-                    height: h,
-                    background: color,
-                    transition: "height 0.05s ease, background 0.1s ease",
-                  }} />
-                );
-              })}
-            </div>
-          )}
 
           {/* Controls */}
-          <div style={{ display: "flex", gap: 10, alignItems: "center", justifyContent: "center" }}>
-            {/* Text input fallback */}
+          <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
             <input
-              value={voice.isListening ? voice.transcript : input}
-              onChange={e => { if (!voice.isListening) setInput(e.target.value); }}
+              value={input}
+              onChange={e => setInput(e.target.value)}
               onKeyDown={e => { if (e.key === "Enter") sendMessage(); }}
-              placeholder="Or type here..."
+              placeholder="Type your response..."
               style={{
                 flex: 1, background: "#111827", border: "1px solid #1E2A42", borderRadius: 12,
-                padding: "12px 16px", fontSize: 13, color: "#E8ECF4", maxWidth: 260,
+                padding: "13px 16px", fontSize: 14, color: "#E8ECF4",
                 fontFamily: "'DM Sans', sans-serif",
               }}
             />
-
-            {/* Mic button */}
-            {voice.hasRecognition && (
-              <button onClick={toggleMic} disabled={loading || mode === "thinking"} style={{
-                width: 56, height: 56, borderRadius: "50%", border: "none",
-                background: voice.isListening
-                  ? "linear-gradient(135deg, #DC3545, #B91C2C)"
-                  : "linear-gradient(135deg, #1A6BF5, #0D4CD4)",
+            <button
+              onClick={() => sendMessage()}
+              disabled={!input.trim() || loading}
+              style={{
+                flexShrink: 0, height: 50, padding: "0 22px",
+                borderRadius: 12, border: "none",
+                background: input.trim() && !loading
+                  ? "linear-gradient(135deg, #1A6BF5, #0D4CD4)"
+                  : "#1E2A42",
+                color: input.trim() && !loading ? "#fff" : "#4D5E80",
+                fontSize: 20, fontWeight: 700, cursor: input.trim() ? "pointer" : "default",
+                boxShadow: input.trim() && !loading ? "0 4px 16px rgba(26,107,245,0.3)" : "none",
+                transition: "all 0.2s",
                 display: "flex", alignItems: "center", justifyContent: "center",
-                boxShadow: voice.isListening ? "0 0 0 0 rgba(220,53,69,0.4)" : "0 4px 16px rgba(26,107,245,0.3)",
-                animation: voice.isListening ? "micPulse 1.5s ease infinite" : mode === "speaking" ? "speakPulse 1.5s ease infinite" : "none",
-                transition: "all 0.2s", flexShrink: 0,
-                opacity: loading || mode === "thinking" ? 0.4 : 1,
-              }}>
-                <span style={{ fontSize: 24 }}>{voice.isListening ? "⏹" : "🎙️"}</span>
-              </button>
-            )}
-
-            {/* Send button (text fallback) */}
-            <button onClick={() => sendMessage()} disabled={!input.trim() || loading || voice.isListening} style={{
-              width: 44, height: 44, borderRadius: 12, border: "none",
-              background: input.trim() && !loading ? "#1E2A42" : "#111827",
-              display: "flex", alignItems: "center", justifyContent: "center",
-              opacity: input.trim() && !loading && !voice.isListening ? 0.8 : 0.3, flexShrink: 0,
-            }}>
-              <span style={{ fontSize: 16 }}>→</span>
+              }}
+            >
+              ↑
             </button>
           </div>
 
