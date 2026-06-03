@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { supabase } from "../lib/supabase";
 import ScenarioBuilder from "./ScenarioBuilder";
+import HistoryScreen from "./HistoryScreen";
 
 // ============================================================
 // REPSIM — Pre-Sales Training Simulator (Voice Edition)
@@ -463,6 +464,7 @@ export default function AISalesCoach({ session }) {
   const [turnCount, setTurnCount] = useState(0);
   const [scenarios, setScenarios] = useState([]);
   const [scenariosLoading, setScenariosLoading] = useState(true);
+  const [historySession, setHistorySession] = useState(null); // session being viewed from history
 
   useEffect(() => { loadScenarios(); }, []);
 
@@ -512,8 +514,22 @@ export default function AISalesCoach({ session }) {
           onNew={() => { setEditScenario(null); setScreen("builder"); }}
           onEdit={(s) => { setEditScenario(s); setScreen("builder"); }}
           onSignOut={handleSignOut}
+          onHistory={() => setScreen("history")}
           onRefresh={loadScenarios}
           session={session}
+        />
+      )}
+      {screen === "history" && (
+        <HistoryScreen
+          session={session}
+          onBack={() => setScreen("home")}
+          onViewDebrief={(s) => {
+            setHistorySession(s);
+            setFeedback(s.feedback);
+            setMessages(s.messages);
+            setScenario({ title: s.scenario_title, persona: s.persona, personaTitle: s.persona_title, company: s.company, objectives: s.feedback?.objectiveResults ? [] : [] });
+            setScreen("debrief");
+          }}
         />
       )}
       {screen === "builder" && (
@@ -525,7 +541,7 @@ export default function AISalesCoach({ session }) {
         />
       )}
       {screen === "briefing" && <BriefingScreen scenario={scenario} onStart={() => setScreen("roleplay")} onBack={() => setScreen("home")} />}
-      {screen === "roleplay" && <RoleplayScreen scenario={scenario} messages={messages} setMessages={setMessages} turnCount={turnCount} setTurnCount={setTurnCount} onEnd={() => setScreen("debrief")} setFeedback={setFeedback} />}
+      {screen === "roleplay" && <RoleplayScreen scenario={scenario} messages={messages} setMessages={setMessages} turnCount={turnCount} setTurnCount={setTurnCount} onEnd={() => setScreen("debrief")} setFeedback={setFeedback} session={session} />}
       {screen === "debrief" && <DebriefScreen scenario={scenario} messages={messages} feedback={feedback} setFeedback={setFeedback} onHome={() => setScreen("home")} onRetry={() => startScenario(scenario)} />}
     </div>
   );
@@ -535,7 +551,7 @@ export default function AISalesCoach({ session }) {
 // HOME SCREEN
 // ============================================================
 
-function HomeScreen({ scenarios, loading, onSelect, onNew, onEdit, onSignOut, session, onRefresh }) {
+function HomeScreen({ scenarios, loading, onSelect, onNew, onEdit, onSignOut, onHistory, session, onRefresh }) {
   const { pullDistance, refreshing } = usePullToRefresh(onRefresh);
   const THRESHOLD = 72;
   const pulled = pullDistance > 0 || refreshing;
@@ -574,10 +590,16 @@ function HomeScreen({ scenarios, loading, onSelect, onNew, onEdit, onSignOut, se
             <p style={{ fontSize: 11, color: "#3D4B66", fontFamily: "'JetBrains Mono', monospace" }}>Voice Enabled 🎙️</p>
           </div>
         </div>
-        <button onClick={onSignOut} style={{
-          background: "none", border: "1px solid #1E2A42", borderRadius: 8,
-          padding: "6px 10px", fontSize: 11, color: "#4D5E80", cursor: "pointer",
-        }}>Sign out</button>
+        <div style={{ display: "flex", gap: 8 }}>
+          <button onClick={onHistory} style={{
+            background: "none", border: "1px solid #1E2A42", borderRadius: 8,
+            padding: "6px 10px", fontSize: 11, color: "#4D5E80", cursor: "pointer",
+          }}>📋 History</button>
+          <button onClick={onSignOut} style={{
+            background: "none", border: "1px solid #1E2A42", borderRadius: 8,
+            padding: "6px 10px", fontSize: 11, color: "#4D5E80", cursor: "pointer",
+          }}>Sign out</button>
+        </div>
       </div>
 
       <div style={{
@@ -702,7 +724,7 @@ function BriefingScreen({ scenario, onStart, onBack }) {
 // ROLEPLAY SCREEN (Voice-Enabled)
 // ============================================================
 
-function RoleplayScreen({ scenario, messages, setMessages, turnCount, setTurnCount, onEnd, setFeedback }) {
+function RoleplayScreen({ scenario, messages, setMessages, turnCount, setTurnCount, onEnd, setFeedback, session }) {
   const voice = useVoice();
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
@@ -860,7 +882,22 @@ Respond ONLY with valid JSON (no markdown):
       });
       const d = await r.json();
       const raw = d.content?.[0]?.text || "{}";
-      setFeedback(JSON.parse(raw.replace(/```json|```/g, "").trim()));
+      const parsed = JSON.parse(raw.replace(/```json|```/g, "").trim());
+      setFeedback(parsed);
+      // Auto-save session to Supabase
+      try {
+        await supabase.from("sessions").insert({
+          user_id: session.user.id,
+          scenario_id: scenario.id || null,
+          scenario_title: scenario.title,
+          persona: scenario.persona,
+          persona_title: scenario.persona_title || scenario.personaTitle,
+          company: scenario.company,
+          messages,
+          feedback: parsed,
+          overall_score: parsed.overallScore,
+        });
+      } catch (e) { console.error("Session save failed:", e); }
     } catch (e) { setFeedback({ overallScore: 0, error: true }); }
     setLoading(false); onEnd();
   };
@@ -1047,6 +1084,36 @@ Respond ONLY with valid JSON (no markdown):
 // DEBRIEF SCREEN
 // ============================================================
 
+function buildShareText(scenario, messages, feedback) {
+  const cats = { discovery: "Discovery", productKnowledge: "Product Knowledge", verticalExpertise: "Vertical Expertise", objectionHandling: "Objection Handling", nextSteps: "Next Steps" };
+  const bar = (s) => s >= 8 ? "🟢" : s >= 6 ? "🟡" : "🔴";
+  return [
+    `📊 Sales Craft — Session Debrief`,
+    `Scenario: ${scenario?.title || "Role-Play"}`,
+    `Persona: ${scenario?.persona || ""} — ${scenario?.personaTitle || ""}`,
+    ``,
+    `Overall Score: ${feedback.overallScore}/10`,
+    ``,
+    `Skill Scores:`,
+    ...Object.entries(cats).map(([k, label]) => `${bar(feedback.scores?.[k])} ${label}: ${feedback.scores?.[k]}/10`),
+    ``,
+    feedback.strengths?.length ? `💪 Strengths:\n${feedback.strengths.map(s => `• ${s}`).join("\n")}` : "",
+    feedback.improvements?.length ? `🎯 Improvements:\n${feedback.improvements.map(s => `• ${s}`).join("\n")}` : "",
+    feedback.coachingTip ? `🏆 Coach's Note:\n"${feedback.coachingTip}"` : "",
+    ``,
+    `Practiced with Sales Craft — salescraft.app`,
+  ].filter(Boolean).join("\n");
+}
+
+async function shareDebrief(text) {
+  if (navigator.share) {
+    await navigator.share({ title: "Sales Craft Debrief", text });
+  } else {
+    await navigator.clipboard.writeText(text);
+    alert("Copied to clipboard!");
+  }
+}
+
 function DebriefScreen({ scenario, messages, feedback, setFeedback, onHome, onRetry }) {
   if (!feedback) return (
     <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100vh", flexDirection: "column", gap: 16 }}>
@@ -1149,6 +1216,17 @@ function DebriefScreen({ scenario, messages, feedback, setFeedback, onHome, onRe
         </div>
       )}
 
+      <button
+        onClick={() => shareDebrief(buildShareText(scenario, messages, feedback))}
+        style={{
+          width: "100%", padding: "14px 0", borderRadius: 12, marginBottom: 10,
+          border: "1px solid rgba(26,107,245,0.3)",
+          background: "rgba(26,107,245,0.08)", color: "#1A6BF5",
+          fontSize: 14, fontWeight: 600, cursor: "pointer",
+          display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+        }}>
+        <span>⬆</span> Share Results
+      </button>
       <div style={{ display: "flex", gap: 10 }}>
         <button onClick={onRetry} style={{ flex: 1, padding: "14px 0", borderRadius: 12, border: "1px solid #1E2A42", background: "#111827", color: "#A8B8DA", fontSize: 14, fontWeight: 600 }}>Retry</button>
         <button onClick={onHome} style={{ flex: 1, padding: "14px 0", borderRadius: 12, border: "none", background: "linear-gradient(135deg, #1A6BF5, #0D4CD4)", color: "#fff", fontSize: 14, fontWeight: 700 }}>New Scenario</button>
