@@ -707,7 +707,7 @@ function BriefingScreen({ scenario, onStart, onBack }) {
         color: "#fff", fontSize: 15, fontWeight: 700,
         boxShadow: "0 8px 32px rgba(26,107,245,0.3)",
       }}>
-        🎙️ Begin Voice Role-Play →
+        Begin Role-Play →
       </button>
     </div>
   );
@@ -919,13 +919,10 @@ Respond ONLY with valid JSON (no markdown):
       <div ref={scrollRef} style={{ flex: 1, overflowY: "auto", padding: "16px", WebkitOverflowScrolling: "touch" }}>
         {!started && (
           <div style={{ textAlign: "center", paddingTop: 50, animation: "fadeIn 0.5s ease" }}>
-            <div style={{ fontSize: 48, marginBottom: 16 }}>🎙️</div>
-            <p style={{ fontSize: 16, fontWeight: 600, color: "#A8B8DA", marginBottom: 8 }}>Voice Role-Play</p>
-            <p style={{ fontSize: 13, color: "#4D5E80", marginBottom: 8, lineHeight: 1.6 }}>
-              {scenario.persona} will open the conversation.<br />Respond by tapping the mic and speaking.
-            </p>
-            <p style={{ fontSize: 11, color: "#3D4B66", marginBottom: 28, fontFamily: "'JetBrains Mono', monospace" }}>
-              You can also type if you prefer
+            <div style={{ fontSize: 48, marginBottom: 16 }}>💬</div>
+            <p style={{ fontSize: 16, fontWeight: 600, color: "#A8B8DA", marginBottom: 8 }}>Role-Play</p>
+            <p style={{ fontSize: 13, color: "#4D5E80", marginBottom: 28, lineHeight: 1.6 }}>
+              {scenario.persona} will open the conversation.<br />Type your responses to reply.
             </p>
             <button onClick={startConversation} style={{
               padding: "14px 36px", borderRadius: 12, border: "none",
@@ -960,14 +957,6 @@ Respond ONLY with valid JSON (no markdown):
           </div>
         )}
 
-        {/* Live transcript preview */}
-        {voice.isListening && voice.transcript && (
-          <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 14, opacity: 0.6 }}>
-            <div style={{ maxWidth: "80%", padding: "12px 16px", fontSize: 13, lineHeight: 1.7, borderRadius: "14px 4px 14px 14px", background: "rgba(26,107,245,0.15)", color: "#8BB8F5", border: "1px dashed rgba(26,107,245,0.3)", fontStyle: "italic" }}>
-              {voice.transcript}...
-            </div>
-          </div>
-        )}
       </div>
 
       {/* Voice Input Bar */}
@@ -991,37 +980,34 @@ Respond ONLY with valid JSON (no markdown):
 
 
           {/* Controls */}
-          <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-            <input
-              value={input}
-              onChange={e => setInput(e.target.value)}
-              onKeyDown={e => { if (e.key === "Enter") sendMessage(); }}
-              placeholder="Type your response..."
-              style={{
-                flex: 1, background: "#111827", border: "1px solid #1E2A42", borderRadius: 12,
-                padding: "13px 16px", fontSize: 14, color: "#E8ECF4",
-                fontFamily: "'DM Sans', sans-serif",
-              }}
-            />
-            <button
-              onClick={() => sendMessage()}
-              disabled={!input.trim() || loading}
-              style={{
-                flexShrink: 0, height: 50, padding: "0 22px",
-                borderRadius: 12, border: "none",
-                background: input.trim() && !loading
-                  ? "linear-gradient(135deg, #1A6BF5, #0D4CD4)"
-                  : "#1E2A42",
-                color: input.trim() && !loading ? "#fff" : "#4D5E80",
-                fontSize: 20, fontWeight: 700, cursor: input.trim() ? "pointer" : "default",
-                boxShadow: input.trim() && !loading ? "0 4px 16px rgba(26,107,245,0.3)" : "none",
-                transition: "all 0.2s",
-                display: "flex", alignItems: "center", justifyContent: "center",
-              }}
-            >
-              ↑
-            </button>
-          </div>
+          <input
+            value={input}
+            onChange={e => setInput(e.target.value)}
+            onKeyDown={e => { if (e.key === "Enter") sendMessage(); }}
+            placeholder="Type your response..."
+            style={{
+              width: "100%", background: "#111827", border: "1px solid #1E2A42", borderRadius: 12,
+              padding: "15px 16px", fontSize: 15, color: "#E8ECF4",
+              fontFamily: "'DM Sans', sans-serif", marginBottom: 10,
+            }}
+          />
+          <button
+            onClick={() => sendMessage()}
+            disabled={!input.trim() || loading}
+            style={{
+              width: "100%", padding: "16px 0",
+              borderRadius: 12, border: "none",
+              background: input.trim() && !loading
+                ? "linear-gradient(135deg, #1A6BF5, #0D4CD4)"
+                : "#1E2A42",
+              color: input.trim() && !loading ? "#fff" : "#4D5E80",
+              fontSize: 16, fontWeight: 700, cursor: input.trim() ? "pointer" : "default",
+              boxShadow: input.trim() && !loading ? "0 4px 16px rgba(26,107,245,0.3)" : "none",
+              transition: "all 0.2s",
+            }}
+          >
+            Send →
+          </button>
 
           {/* End session button — full width, always reachable */}
           {messages.length >= 2 && (
