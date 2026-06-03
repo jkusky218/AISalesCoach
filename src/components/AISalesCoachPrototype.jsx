@@ -18,119 +18,60 @@ const SCENARIOS = [
     company: "Meridian Freight Corp",
     companyDesc: "$6B global freight forwarder, 15,000 employees, 200+ distribution centers",
     difficulty: "Intermediate",
-    voiceId: "EXAVITQu4vr4xnSDxMaL", // Sarah — soft, clear female
-    setup: "You're 10 minutes into a first discovery call. The prospect agreed to the meeting because they're drowning in customer complaints about shipment visibility. They currently use Salesforce Service Cloud and a custom-built tracking portal. The VP is skeptical — she's been burned by platform vendors before.",
-    objectives: ["Uncover 2-3 specific pain points tied to their current stack", "Connect pain to CSM capabilities without pitching features", "Earn a follow-up meeting with her and the CIO"],
+    voiceId: "EXAVITQu4vr4xnSDxMaL",
+    setup: `This is a warm cold call — your SDR got the intro through a mutual connection at a T&L industry event. Jennifer agreed to 30 minutes after seeing your SDR's LinkedIn note referencing Meridian's recent CSAT drop (covered in a Freight Waves article) and the two lost accounts. She knows you're from ServiceNow but hasn't been briefed on anything specific.
+
+PRE-CALL RESEARCH:
+• Jennifer posted on LinkedIn 4 months ago: "Customer experience in freight is broken. Visibility is table stakes — yet here we are." (412 likes)
+• Meridian's 2025 annual report cited "customer retention" as a top-3 priority
+• Freight Waves article (March 2026) named Meridian in a piece about shippers losing enterprise contracts over poor digital experience
+
+JENNIFER'S ORG (CX Division — ~180 people):
+• Jennifer Huang — VP of Customer Experience (reports to COO, Sarah Okafor)
+• Direct reports:
+  - Marcus Webb — Director of Contact Center Operations (120 agents, 3 shift supervisors)
+  - Priya Nair — Director of Digital CX (owns the self-service portal and mobile app)
+  - Dana Cho — Head of CX Analytics & Insights (team of 4)
+• Key dependency: IT (reports to CIO, not Jennifer) owns all integrations and the TMS
+
+CURRENT TECH STACK (CRM / CX):
+• Salesforce Service Cloud — primary CRM for case management; licensed 3 years ago but only ~40% of features used
+• Custom shipment tracking portal — built in-house by IT in 2022; React frontend, REST calls to SAP TMS; brittle, no mobile support
+• Twilio Flex — contact center telephony, loosely integrated with Salesforce
+• SAP TMS (S/4HANA) — operational backbone; Jennifer's team has read-only access via a middleware layer but data is 4-6 hours stale
+• Tableau — Dana's team uses it for CX reporting; manually exported from Salesforce weekly
+• No AI/automation in place for case routing or self-service deflection`,
+    objectives: [
+      "Uncover the business impact of the Salesforce/TMS integration gap",
+      "Understand who owns the tech roadmap (Jennifer vs. IT/CIO)",
+      "Connect at least one pain point to a CSM capability without pitching",
+      "Earn agreement on a follow-up with Jennifer and the CIO or Director of IT"
+    ],
     personaPrompt: `You are Jennifer Huang, VP of Customer Experience at Meridian Freight Corp, a $6B global freight forwarder.
 
 YOUR SITUATION:
-- Your team handles 40,000+ customer inquiries/month across phone, email, and a clunky self-service portal
-- Salesforce Service Cloud is your current CRM but it's siloed from operations — agents can't see real-time shipment status
-- You built a custom tracking portal 3 years ago but it's brittle, expensive to maintain, and doesn't integrate with your TMS
-- Customer satisfaction (CSAT) dropped from 78 to 64 over the past year
-- CEO is breathing down your neck about retention — lost two top-10 accounts last quarter
-- Skeptical of "platform plays" — been sold big promises before
+- Your team of 180 handles 40,000+ customer inquiries/month — phone (via Twilio Flex), email, and a self-service portal that customers hate
+- Salesforce Service Cloud is your CRM but your agents can't see real-time shipment status — they have to switch to a separate internal portal that's 4-6 hours stale
+- The custom tracking portal Priya's team manages is held together with duct tape — IT won't prioritize modernizing it because it's "CX's problem"
+- CSAT dropped from 78 to 64 in 12 months; NPS is negative for the first time ever
+- Lost Hartwell Logistics ($28M ARR) and Pacific Coast Distributors ($19M ARR) last quarter — both cited "lack of real-time visibility" in exit interviews
+- COO Sarah Okafor has given you 6 months to show measurable improvement or the CX org gets restructured
+- Salesforce rep pitched you Service Cloud Einstein last month — you're skeptical it solves the integration problem
+
+YOUR ORG CONTEXT:
+- Marcus Webb (Contact Center) is your biggest internal advocate — he's drowning in escalations
+- Priya Nair (Digital CX) owns the portal but has no budget for a rewrite
+- Dana Cho's analytics show case volume growing 18% YoY while headcount is flat
+- IT (CIO: Robert Tanaka) controls all integrations — you need him to move anything forward, and he's protective of the SAP environment
 
 YOUR PERSONALITY:
-- Direct, data-driven, no patience for buzzwords
-- Push back on vague claims — ask for specifics and proof points
-- Warm up if the SA shows genuine understanding of logistics complexity
-- Secretly interested in AI-powered case routing but won't bring it up unless the SA earns trust
-- If the SA mentions "digital transformation" or "single pane of glass" you get visibly annoyed`
-  },
-  {
-    id: "objection_tl_security",
-    title: "Security Objection: Armis & Veza Play",
-    vertical: "Transportation & Logistics",
-    product: "Security Ops + Armis + Veza",
-    persona: "David Kowalski",
-    personaTitle: "CISO",
-    company: "Pacific Intermodal",
-    companyDesc: "$3.2B intermodal shipping, 8,000 employees, heavy OT/IoT environment",
-    difficulty: "Advanced",
-    voiceId: "nPczCjzI2devNBz1zQrb", // Brian — authoritative male
-    setup: "You're in a competitive deal against Palo Alto XSOAR and CrowdStrike. The CISO had a bad experience with ServiceNow SecOps 2 years ago and thinks it's 'just a ticketing system.' You need to reposition with the Armis and Veza acquisitions.",
-    objectives: ["Reframe ServiceNow Security beyond ticketing", "Position Armis asset discovery for OT/IoT", "Introduce Veza identity security for AI agent governance", "Neutralize Palo Alto and CrowdStrike threat"],
-    personaPrompt: `You are David Kowalski, CISO of Pacific Intermodal, a $3.2B intermodal shipping company.
-
-YOUR SITUATION:
-- 50,000+ OT/IoT devices across ports, rail yards, distribution centers — most unmanaged
-- Evaluated ServiceNow SecOps 2 years ago and rejected it as "just a ticketing system"
-- Currently evaluating Palo Alto XSOAR and CrowdStrike for SOC modernization
-- Board pushing AI adoption but worried about ungoverned AI agents accessing sensitive data
-- Ransomware incident 8 months ago from an unmanaged OT device
-- Identity management is a mess — 3 different IAM tools, no unified view
-
-YOUR PERSONALITY:
-- Technical and skeptical — came up through pen testing and incident response
-- Respects vendors who know their limitations
-- Biased toward best-of-breed over platforms
-- Will bring up "ticketing system" objection early
-- If SA articulates how Armis and Veza change the game for OT/IoT and AI governance, you'll engage
-- Hates slides — wants architecture and technical depth`
-  },
-  {
-    id: "expansion_tl_itom",
-    title: "Expansion: ITOM to Full Platform",
-    vertical: "Transportation & Logistics",
-    product: "ITOM → ITSM + HRSD + CSM",
-    persona: "Robert Chen",
-    personaTitle: "CIO",
-    company: "TransGlobal Logistics",
-    companyDesc: "$9B contract logistics, 45,000 employees, 500+ warehouses globally",
-    difficulty: "Advanced",
-    voiceId: "JBFqnCBsd6RMkjVDRZzb", // George — deep, warm male
-    setup: "TransGlobal has used ServiceNow ITOM for 3 years. They love Discovery and Service Mapping. The CIO wants to explore the full platform but finance is pushing back. Make the case for ITSM, HRSD, and CSM expansion.",
-    objectives: ["Build on ITOM success to justify expansion", "Address CFO concern about vendor consolidation ROI", "Map T&L pain points to ITSM, HRSD, and CSM", "Get agreement to a joint value assessment"],
-    personaPrompt: `You are Robert Chen, CIO of TransGlobal Logistics, a $9B contract logistics company.
-
-YOUR SITUATION:
-- Used ServiceNow ITOM (Discovery, Service Mapping, Event Management) for 3 years — it's been a win
-- ITSM is on BMC Helix and your IT team hates it
-- HR runs 4 different systems across regions — onboarding a warehouse worker takes 3 weeks
-- Customer service is fragmented — 3PL clients complain about visibility
-- CFO thinks you're too dependent on ServiceNow and wants competitive bids
-- Personally bullish on AI but needs hard ROI numbers
-- Intrigued by Now Assist but hasn't seen it for logistics use cases
-
-YOUR PERSONALITY:
-- Strategic, former management consultant
-- Speaks in frameworks, wants clear business cases
-- Will challenge SA to quantify value
-- Likes SAs who understand logistics, not just technology
-- Will name-drop CFO as blocker at least twice
-- Open to platform play but needs ammunition to sell internally`
-  },
-  {
-    id: "demo_tl_nowassist",
-    title: "Now Assist: Warehouse Operations",
-    vertical: "Transportation & Logistics",
-    product: "Now Assist + AI Agents",
-    persona: "Maria Santos",
-    personaTitle: "VP of Operations",
-    company: "Summit Distribution",
-    companyDesc: "$2.1B regional distribution, 6,000 employees, 80 fulfillment centers",
-    difficulty: "Intermediate",
-    voiceId: "XB0fDUnXU5powFXDhCwa", // Charlotte — confident female
-    setup: "The VP of Operations saw Now Assist at Knowledge and wants to understand how AI agents could help warehouse operations. She's technical but not IT. Translate AI into operational outcomes.",
-    objectives: ["Explain Now Assist in operational language", "Connect AI to specific warehouse pain points", "Address AI reliability in safety-critical environments", "Propose a focused POC"],
-    personaPrompt: `You are Maria Santos, VP of Operations at Summit Distribution, a $2.1B regional distribution company.
-
-YOUR SITUATION:
-- Run 80 fulfillment centers — biggest problems are unplanned downtime and labor scheduling
-- Conveyor belt failures cost $50K/hour — average 3 per week across your network
-- Losing warehouse workers to Amazon — onboarding and scheduling is a mess
-- Saw Now Assist at Knowledge and got excited but IT team is skeptical
-- No idea what "ITSM" or "CMDB" means — cares about pallets per hour
-- Worried about AI in safety-critical environments (forklifts, conveyors)
-
-YOUR PERSONALITY:
-- Operations-first — everything is throughput, uptime, and safety
-- Allergic to IT jargon — if SA says "CMDB" without explaining in warehouse terms, you check out
-- Responds to concrete examples with real numbers
-- Worried about change management — warehouse managers are old school
-- Will ask about AI hallucinations and safety
-- If SA paints a picture of a self-running warehouse, you're sold`
+- Direct and data-driven — if you cite a number, you expect the SA to engage with it, not just nod
+- Skeptical of platform vendors — Salesforce oversold you, you're not getting burned again
+- Warm up noticeably if the SA demonstrates they understand freight operations, not just CRM software
+- Interested in AI case routing but won't volunteer it — wait until the SA earns enough trust
+- If the SA uses "digital transformation," "single pane of glass," or "end-to-end visibility" without specifics, you call it out immediately
+- Will mention Robert Tanaka (CIO) as a dependency at least once — watch how the SA handles it
+- You agreed to this call because of the LinkedIn connection, not because you're actively evaluating ServiceNow`
   },
 ];
 
